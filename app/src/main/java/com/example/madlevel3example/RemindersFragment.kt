@@ -6,9 +6,7 @@ import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
 import androidx.fragment.app.setFragmentResultListener
-import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -21,8 +19,10 @@ import kotlinx.android.synthetic.main.fragment_reminders.*
  * A simple [Fragment] subclass as the default destination in the navigation.
  */
 class RemindersFragment : Fragment() {
-    private val reminders = arrayListOf<Reminder>()
-    private val reminderAdapter = ReminderAdapter(reminders)
+    private lateinit var reminderRepository: ReminderRepository;
+
+    private val reminders = arrayListOf<Reminder>();
+    private val reminderAdapter = ReminderAdapter(reminders);
 
     override fun onCreateView(
             inflater: LayoutInflater, container: ViewGroup?,
@@ -38,6 +38,17 @@ class RemindersFragment : Fragment() {
         initViews();
 
         observeAddReminderResult();
+
+        reminderRepository = ReminderRepository(requireContext());
+        getReminderFromDatabase();
+
+    }
+
+    private fun getReminderFromDatabase() {
+        // A simple rename removes the need to use this@
+        val databaseReminders = reminderRepository.getAllReminders();
+        reminders.clear();
+        reminders.addAll(databaseReminders);
     }
 
     private fun initViews() {
@@ -52,8 +63,11 @@ class RemindersFragment : Fragment() {
         setFragmentResultListener(REQ_REMINDER_KEY) {
             key, bundle -> bundle.getString(BUNDLE_REMINDER_KEY)?.let {
             val reminder = Reminder(it);
+
             reminders.add(reminder);
             reminderAdapter.notifyDataSetChanged()
+            reminderRepository.insertReminder(reminder);
+            getReminderFromDatabase();
             } ?: Log.e("ReminderFragment", "Request triggered, but empty reminder text!");
         }
     }
@@ -70,8 +84,10 @@ class RemindersFragment : Fragment() {
 
             override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
                 val position = viewHolder.adapterPosition;
-                reminders.removeAt(position);
-                reminderAdapter.notifyDataSetChanged();
+
+                val reminderToDelete = reminders[position];
+                reminderRepository.deleteReminder(reminderToDelete);
+                getReminderFromDatabase();
             }
         }
         return ItemTouchHelper(callback);
