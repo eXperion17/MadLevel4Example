@@ -14,6 +14,10 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.madlevel2example.Reminder
 import com.example.madlevel2example.ReminderAdapter
 import kotlinx.android.synthetic.main.fragment_reminders.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * A simple [Fragment] subclass as the default destination in the navigation.
@@ -45,10 +49,13 @@ class RemindersFragment : Fragment() {
     }
 
     private fun getReminderFromDatabase() {
-        // A simple rename removes the need to use this@
-        val databaseReminders = reminderRepository.getAllReminders();
-        reminders.clear();
-        reminders.addAll(databaseReminders);
+        CoroutineScope(Dispatchers.Main).launch {
+            // A simple rename removes the need to use this@
+            val databaseReminders = reminderRepository.getAllReminders();
+            reminders.clear();
+            reminders.addAll(databaseReminders);
+            reminderAdapter.notifyDataSetChanged();
+        }
     }
 
     private fun initViews() {
@@ -64,10 +71,15 @@ class RemindersFragment : Fragment() {
             key, bundle -> bundle.getString(BUNDLE_REMINDER_KEY)?.let {
             val reminder = Reminder(it);
 
-            reminders.add(reminder);
-            reminderAdapter.notifyDataSetChanged()
-            reminderRepository.insertReminder(reminder);
-            getReminderFromDatabase();
+            CoroutineScope(Dispatchers.Main).launch {
+                withContext(Dispatchers.IO) {
+                    reminderRepository.insertReminder(reminder);
+                }
+                getReminderFromDatabase();
+            }
+
+            //reminders.add(reminder);
+            //reminderAdapter.notifyDataSetChanged()
             } ?: Log.e("ReminderFragment", "Request triggered, but empty reminder text!");
         }
     }
@@ -84,10 +96,14 @@ class RemindersFragment : Fragment() {
 
             override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
                 val position = viewHolder.adapterPosition;
-
                 val reminderToDelete = reminders[position];
-                reminderRepository.deleteReminder(reminderToDelete);
-                getReminderFromDatabase();
+
+                CoroutineScope(Dispatchers.Main).launch {
+                    withContext(Dispatchers.IO) {
+                        reminderRepository.deleteReminder(reminderToDelete);
+                    }
+                    getReminderFromDatabase();
+                }
             }
         }
         return ItemTouchHelper(callback);
